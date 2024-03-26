@@ -3152,10 +3152,14 @@ class ASCIIEncoder : public EncoderImpl, virtual public TypedEncoder<DType> {
 
 template <typename DType>
 void ASCIIEncoder<DType>::Put(const T* buffer, int num_values) {
+  std::ostringstream ss;
+  ss << std::fixed << std::setprecision(2);
   for (int i = 0; i < num_values; ++i) {
-    std::string ascii_representation = std::to_string(buffer[i]);
-    ascii_representation.push_back('\000');
-    PARQUET_THROW_NOT_OK(sink_.Append(reinterpret_cast<const uint8_t*>(ascii_representation.c_str()), ascii_representation.size()));
+    ss.str(""); 
+    ss << buffer[i];
+    std::string ascii_rep = ss.str();
+    ascii_rep.push_back('\000');
+    PARQUET_THROW_NOT_OK(sink_.Append(reinterpret_cast<const uint8_t*>(ascii_rep.c_str()), ascii_rep.size()));
   }
 }
 
@@ -3200,21 +3204,27 @@ class ASCIIDecoder : public DecoderImpl, virtual public TypedDecoder<DType> {
 
 template <typename DType>
 int ASCIIDecoder<DType>::Decode(T* buffer, int max_values) {
-  int num_decoded_values = 0;
-  while (num_decoded_values < max_values && len_ > 0) {
-    std::string number_str;
+  int num_decoded_val = 0;
+  while (num_decoded_val < max_values && len_ > 0) {
+    std::string num_str;
     while (*data_ != '\0' && len_ > 0) {
-      number_str.push_back(*data_);
+      num_str.push_back(*data_);
       ++data_;
       --len_;
     }
-    if (len_ > 0) {  // Skip the '\0' character
+    if (len_ > 0) {  
       ++data_;
       --len_;
     }
-    buffer[num_decoded_values++] = std::stoi(number_str);
+    if (num_str.find('.') != std::string::npos) {
+      
+      buffer[num_decoded_val++] = std::stof(num_str);
+    } else {
+      
+      buffer[num_decoded_val++] = std::stoi(num_str);
+    }
   }
-  return num_decoded_values;
+  return num_decoded_val;
 }
 
 // ----------------------------------------------------------------------
@@ -3921,8 +3931,8 @@ std::unique_ptr<Encoder> MakeEncoder(Type::type type_num, Encoding::type encodin
       case Type::INT64:
         return std::make_unique<ASCIIEncoder<Int64Type>>(descr, pool);
       // Uncomment this when you finish implementing the float encoder and decoder:
-      // case Type::FLOAT:
-      //   return std::make_unique<ASCIIEncoder<FloatType>>(descr,pool);
+       case Type::FLOAT:
+       return std::make_unique<ASCIIEncoder<FloatType>>(descr,pool);
       default:
         throw ParquetException(
             "ASCII encoder only supports INT32 and INT64");
@@ -4006,8 +4016,8 @@ std::unique_ptr<Decoder> MakeDecoder(Type::type type_num, Encoding::type encodin
       case Type::INT64:
         return std::make_unique<ASCIIDecoder<Int64Type>>(descr);
       // Uncomment this when you finish implementing the float encoder and decoder:
-      // case Type::FLOAT:
-      //   return std::make_unique<ASCIIDecoder<FloatType>>(descr);
+      case Type::FLOAT:
+      return std::make_unique<ASCIIDecoder<FloatType>>(descr);
       default:
         throw ParquetException(
             "ASCII decoder only supports INT32 and INT64");
