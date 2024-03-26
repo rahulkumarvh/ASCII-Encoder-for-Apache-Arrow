@@ -3152,24 +3152,10 @@ class ASCIIEncoder : public EncoderImpl, virtual public TypedEncoder<DType> {
 
 template <typename DType>
 void ASCIIEncoder<DType>::Put(const T* buffer, int num_values) {
-  static_assert(std::is_same_v<DType, Int32Type> || std::is_same_v<DType, Int64Type>,
-              "ASCIIEncoder only supports Int32 and Int64 types");
-
-  constexpr int MAX_ASCII_LENGTH = 20; // Assuming a maximum of 20 characters for int64_t
-
   for (int i = 0; i < num_values; ++i) {
-    T value = buffer[i];
-    char ascii_value[MAX_ASCII_LENGTH + 1]; // Add space for null terminator
-
-    int ascii_length;
-    if constexpr (std::is_same_v<DType, Int32Type>) {
-      ascii_length = snprintf(ascii_value, MAX_ASCII_LENGTH + 1, "%d", value);
-    } else {
-      int64_t value_int64 = static_cast<int64_t>(value);
-      ascii_length = snprintf(ascii_value, MAX_ASCII_LENGTH + 1, "%ld", value_int64);  // Use %ld instead of %lld
-    }
-
-    sink_.UnsafeAppend(ascii_value, ascii_length + 1); // Append the ASCII representation including null terminator
+    std::string ascii_representation = std::to_string(buffer[i]);
+    ascii_representation.push_back('\000');
+    PARQUET_THROW_NOT_OK(sink_.Append(reinterpret_cast<const uint8_t*>(ascii_representation.c_str()), ascii_representation.size()));
   }
 }
 
@@ -3214,30 +3200,21 @@ class ASCIIDecoder : public DecoderImpl, virtual public TypedDecoder<DType> {
 
 template <typename DType>
 int ASCIIDecoder<DType>::Decode(T* buffer, int max_values) {
-    static_assert(std::is_same_v<DType, Int32Type> || std::is_same_v<DType, Int64Type>,
-                  "ASCIIDecoder only supports Int32 and Int64 types");
-
-    int values_decoded = 0;
-    const uint8_t* data_ptr = data_;
-
-    while (values_decoded < max_values && len_ > 0) {
-        char* endptr;
-        int64_t value = strtoll(reinterpret_cast<const char*>(data_ptr), &endptr, 10);
-        int ascii_length = static_cast<int>(endptr - reinterpret_cast<const char*>(data_ptr));
-
-        if (ascii_length == 0 || *endptr != '\0') {
-            ParquetException::EofException();
-        }
-
-        buffer[values_decoded] = static_cast<T>(value);
-        values_decoded++;
-        data_ptr += ascii_length + 1; // Advance past the null terminator
-        len_ -= ascii_length + 1;
+  int num_decoded_values = 0;
+  while (num_decoded_values < max_values && len_ > 0) {
+    std::string number_str;
+    while (*data_ != '\0' && len_ > 0) {
+      number_str.push_back(*data_);
+      ++data_;
+      --len_;
     }
-
-    data_ = data_ptr;
-    num_values_ -= values_decoded;
-    return values_decoded;
+    if (len_ > 0) {  // Skip the '\0' character
+      ++data_;
+      --len_;
+    }
+    buffer[num_decoded_values++] = std::stoi(number_str);
+  }
+  return num_decoded_values;
 }
 
 // ----------------------------------------------------------------------
