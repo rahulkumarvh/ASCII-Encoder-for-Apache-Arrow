@@ -19,6 +19,26 @@
 
 # Apache Arrow
 
+## ASCII Encoder/Decoder Implementation
+In this project, I developed custom ASCII encoding and decoding routines for both integer and floating-point types. The solution builds upon the design principles of the existing PlainEncoder/Decoder, extending the functionality to provide ASCII representations with an emphasis on readability and precision.
+
+Integer Encoding/Decoding
+Encoding: Each integer (both 32-bit and 64-bit) is converted into its ASCII string representation with a null terminator. For example, the integer 96 is encoded as '9', '6', '\0'.
+
+Decoding: The encoded ASCII string is parsed back into its original integer value, ensuring that the integrity of the data is maintained throughout the conversion process.
+
+Floating-Point Encoding/Decoding
+Encoding: Floating-point numbers are similarly converted to their ASCII representation. In addition, the encoding process rounds the value to two decimal places. For instance, the float 32.5887 is encoded as '3', '2', '.', '5', '9', '\0'.
+
+Decoding: The ASCII string is then accurately parsed to retrieve the original float value with the applied precision.
+
+## Development Process
+I analyzed and referenced the corresponding routines in the PlainEncoder/Decoder to understand the control flow and data handling requirements.
+
+Debugging tools (e.g., GDB) were extensively used to trace execution and verify the correctness of the encoding/decoding logic.
+
+The final implementation successfully passes the provided test cases, achieving the expected score during evaluation.
+
 [![Fuzzing Status](https://oss-fuzz-build-logs.storage.googleapis.com/badges/arrow.svg)](https://bugs.chromium.org/p/oss-fuzz/issues/list?sort=-opened&can=1&q=proj:arrow)
 [![License](http://img.shields.io/:license-Apache%202-blue.svg)](https://github.com/apache/arrow/blob/main/LICENSE.txt)
 [![Twitter Follow](https://img.shields.io/twitter/follow/apachearrow.svg?style=social&label=Follow)](https://twitter.com/apachearrow)
